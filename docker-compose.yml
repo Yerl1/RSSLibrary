@@ -3,12 +3,12 @@ version: "3.8"
 
 services:
   db:
-    image: postgres:latest
+    image: postgres:16
     container_name: postgres_container
     environment:
-      POSTGRES_USER=${POSTGRES_USER}
-      POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      POSTGRES_DB=${POSTGRES_DBNAME}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_NAME}
     ports:
       - "5432:${POSTGRES_PORT}"
     # HEALTH CHECK
@@ -18,10 +18,10 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - DB_HOST=${POSTGRES_HOST}
-      - DB_PORT=${POSTGRES_PORT}
-      - DB_USER=${POSTGRES_USER}
-      - DB_PASSWORD=${POSTGRES_PASSWORD}
-      - DB_NAME=${POSTGRES_DBNAME}
+      - DB_HOST:${POSTGRES_HOST}
+      - DB_PORT:${POSTGRES_PORT}
+      - DB_USER:${POSTGRES_USER}
+      - DB_PASSWORD:${POSTGRES_PASSWORD}
+      - DB_NAME:${POSTGRES_NAME}
     depends_on:
       - db

@@ -1,8 +1,8 @@
-# syntax=docker/dockerfile:1
+
 
 
 # Getting ready image of Golang from the Docker libraries
-FROM golang:1.22.6
+FROM golang:1.24.3
 
 
 # Creating directory inside the image that you're building, in order to instruct
@@ -23,7 +23,7 @@ RUN go mod download
 COPY . .
 
 # Compiling the application
-RUN go build -o rsshub ./cmd
+RUN go build -o rsshub ./cmd/app
 
 # Telling Docker what command to run when the image is used to start the container
 CMD ["./rsshub"]
