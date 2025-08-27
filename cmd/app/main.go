@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"os"
+
 	"rsslibrary/internal/config"
 	"rsslibrary/internal/repository"
 	"rsslibrary/pkg/loadenv"
@@ -18,4 +21,10 @@ func main() {
 	}
 	defer db.Close()
 	log.Println("Connected to DB:", db.Stats())
+
+	for {
+		if len(os.Args) > 1 {
+			fmt.Println(os.Args)
+		}
+	}
 }
