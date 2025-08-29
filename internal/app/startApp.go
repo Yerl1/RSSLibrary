@@ -61,7 +61,7 @@ func handleClient(conn net.Conn, ctx context.Context, handler *handlers.RequestH
 		}
 		req.WriteByte(buffer[0])
 	}
-	fmt.Println(req.String())
-	// Processing the request
-
+	if req.String() == "fetch" {
+		handler.Fetch(ctx, conn)
+	}
 }
