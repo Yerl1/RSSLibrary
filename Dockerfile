@@ -26,6 +26,4 @@ COPY . .
 RUN go build -o rsshub ./cmd/app
 
 # Telling Docker what command to run when the image is used to start the container
-CMD ["./rsshub"]
-
-RUN ./rsshub start_server
+CMD ["./rsshub", "start_server"]

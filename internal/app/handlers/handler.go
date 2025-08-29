@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"errors"
+
+	"rsslibrary/internal/app/service"
 )
 
 type Handler interface {
@@ -16,11 +18,12 @@ type Handler interface {
 }
 
 type RequestHandler struct {
+	srv         *service.Service
 	fetchStatus bool
 }
 
-func NewRequestHandler() *RequestHandler {
-	return &RequestHandler{fetchStatus: false}
+func NewRequestHandler(srv *service.Service) *RequestHandler {
+	return &RequestHandler{fetchStatus: false, srv: srv}
 }
 
 func (this *RequestHandler) Fetch(ctx context.Context) (string, error) {

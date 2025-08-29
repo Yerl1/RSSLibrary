@@ -5,6 +5,8 @@ import (
 	"io"
 	"net"
 	"strings"
+
+	"rsslibrary/internal/app/handlers"
 )
 
 func RunApp() {
@@ -43,6 +45,10 @@ func handleClient(conn net.Conn) {
 		}
 		req.WriteByte(buffer[0])
 	}
-
+	fmt.Println(req.String())
 	// Processing the request
+
+	if req.String() == "fetch" {
+		handlers.Fetch(ctx)
+	}
 }

@@ -6,7 +6,7 @@ import (
 )
 
 func Fetch(conn net.Conn) {
-	data := []byte("Fetch")
+	data := []byte("fetch")
 	_, err := conn.Write(data)
 	if err != nil {
 		fmt.Println(err.Error())
