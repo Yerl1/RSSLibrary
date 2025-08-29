@@ -29,6 +29,7 @@ func RunApp() {
 func handleClient(conn net.Conn) {
 	defer conn.Close()
 
+	// Parsing client request
 	buffer := make([]byte, 1)
 	var req strings.Builder
 	for {
@@ -42,5 +43,6 @@ func handleClient(conn net.Conn) {
 		}
 		req.WriteByte(buffer[0])
 	}
-	fmt.Println(req.String())
+
+	// Processing the request
 }
