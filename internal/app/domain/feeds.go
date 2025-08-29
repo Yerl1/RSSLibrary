@@ -1,13 +1,15 @@
 package domain
 
+import "time"
+
 type Feed struct {
-	Id             string
-	CreatedAt      string
-	UpdatedAt      string
-	Name           string
-	Url            string
-	Last_polled_at string
-	Last_change_at string
-	Etag           string
-	Last_modified  string
+	ID           string     `db:"id"`
+	CreatedAt    time.Time  `db:"created_at"`
+	UpdatedAt    time.Time  `db:"updated_at"`
+	Name         string     `db:"name"`
+	URL          string     `db:"url"`
+	LastPolledAt *time.Time `db:"last_polled_at"`
+	LastChangeAt *time.Time `db:"last_change_at"`
+	ETag         *string    `db:"etag"`
+	LastModified *string    `db:"last_modified"`
 }
