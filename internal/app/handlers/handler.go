@@ -29,11 +29,9 @@ func NewRequestHandler(srv *service.Service) *RequestHandler {
 func (this *RequestHandler) Fetch(ctx context.Context, conn net.Conn) {
 	msg, err := this.srv.Fetch(ctx)
 	if err != nil {
-		// write to log
 		fmt.Println(err.Error())
 		return
 	}
-	fmt.Println(msg)
 	conn.Write([]byte(msg))
 }
 

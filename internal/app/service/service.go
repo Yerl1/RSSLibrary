@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"os"
 	"strconv"
 	"sync"
@@ -29,7 +28,7 @@ func NewService(repo *repository.Repository) *Service {
 
 func (this *Service) Fetch(ctx context.Context) (string, error) {
 	if this.FETCH_STATUS {
-		return "Background process is already running", errors.New("Noooo")
+		return "Background process is already running", nil
 	}
 	var wg sync.WaitGroup
 	size := len(os.Getenv("CLI_APP_TIMER_INTERVAL"))

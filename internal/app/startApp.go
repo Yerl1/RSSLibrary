@@ -6,7 +6,7 @@ import (
 	"io"
 	"log"
 	"net"
-	"strings"
+	"runtime"
 
 	"rsslibrary/internal/app/handlers"
 	"rsslibrary/internal/app/repository"
@@ -16,6 +16,7 @@ import (
 )
 
 func RunApp(ctx context.Context) {
+	runtime.GOMAXPROCS(3)
 	listener, err := net.Listen("tcp", "localhost:8080")
 	if err != nil {
 		fmt.Println(err.Error())
@@ -46,22 +47,17 @@ func RunApp(ctx context.Context) {
 
 func handleClient(conn net.Conn, ctx context.Context, handler *handlers.RequestHandler) {
 	defer conn.Close()
-
-	// Parsing client request
-	buffer := make([]byte, 1)
-	var req strings.Builder
 	for {
-		_, err := conn.Read(buffer)
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			fmt.Println(err.Error())
-			return
+		input := make([]byte, (1024 * 4))
+		n, err := conn.Read(input)
+		if n == 0 || (err != nil && err != io.EOF) {
+			fmt.Println("Read error:", err)
+			break
 		}
-		req.WriteByte(buffer[0])
-	}
-	if req.String() == "fetch" {
-		handler.Fetch(ctx, conn)
+		source := string(input[0:n])
+
+		if source == "fetch" {
+			go handler.Fetch(ctx, conn)
+		}
 	}
 }
