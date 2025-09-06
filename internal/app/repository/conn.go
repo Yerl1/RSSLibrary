@@ -4,8 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"rsslibrary/internal/config"
 	"time"
+
+	"rsslibrary/internal/config"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -13,7 +14,6 @@ import (
 func ConnectDB(ctx context.Context, cfg config.DatabaseConfig) (*sql.DB, error) {
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.Name)
-	fmt.Println("DSN:", dsn)
 	const (
 		maxRetries = 10
 		retryDelay = 2 * time.Second
