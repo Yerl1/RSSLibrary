@@ -3,6 +3,8 @@ package workerpool
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -14,22 +16,49 @@ type Dispatcher interface {
 	ScaleWorkers(minWorkers, maxWorkers, loadThreshold int)
 	MakeRequest(r string)
 	Stop(ctx context.Context)
+	StartDispatcher(ctx context.Context)
 }
 
 type dispatcher struct {
-	inCh        chan string
-	wg          *sync.WaitGroup
-	mu          sync.Mutex
-	workerCount int
-	stopCh      chan struct{}
+	inCh            chan string
+	wg              *sync.WaitGroup
+	mu              sync.Mutex
+	ticker          *time.Ticker
+	workerCount     int
+	minWorkerNumber int
+	stopCh          chan struct{}
 }
 
-func NewDispatcher(b int, wg *sync.WaitGroup, maxWorkers int) Dispatcher {
+func NewDispatcher(b int, wg *sync.WaitGroup, ticker *time.Ticker) Dispatcher {
+	minWorkerNumber, _ := strconv.Atoi(os.Getenv("CLI_APP_WORKERS_COUNT"))
 	return &dispatcher{
-		inCh:   make(chan string, b),
-		wg:     wg,
-		stopCh: make(chan struct{}, maxWorkers),
+		inCh:            make(chan string, b),
+		wg:              wg,
+		stopCh:          make(chan struct{}, 50),
+		ticker:          ticker,
+		minWorkerNumber: minWorkerNumber,
 	}
+}
+
+func (d *dispatcher) StartDispatcher(ctx context.Context) {
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				d.Stop(ctx)
+				return
+			case <-d.ticker.C:
+				for i := 0; i < d.minWorkerNumber; i++ {
+					fmt.Printf("Starting worker with the id %d\n", i)
+					w := &Worker{
+						Id: i,
+						Wg: d.wg,
+					}
+					d.AddWorker(w)
+				}
+			}
+		}
+	}()
 }
 
 func (d *dispatcher) AddWorker(w WorkerLauncher) {
@@ -54,7 +83,7 @@ func (d *dispatcher) ScaleWorkers(minWorkers, maxWorkers, loadThreshold int) {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		load := len(d.inCh) // Current load is the number of pending requests in the channel
+		load := len(d.inCh)
 		if load > loadThreshold && d.workerCount < maxWorkers {
 			fmt.Println("Scaling Triggered")
 			newWorker := &Worker{
@@ -103,6 +132,5 @@ func (d *dispatcher) Stop(ctx context.Context) {
 			d.stopCh <- struct{}{}
 		}
 	}
-
 	d.wg.Wait()
 }

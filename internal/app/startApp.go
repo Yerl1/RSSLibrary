@@ -6,7 +6,7 @@ import (
 	"io"
 	"log"
 	"net"
-	"strings"
+	"runtime"
 
 	"rsslibrary/internal/app/handlers"
 	"rsslibrary/internal/app/repository"
@@ -16,13 +16,13 @@ import (
 )
 
 func RunApp(ctx context.Context) {
+	runtime.GOMAXPROCS(3)
 	listener, err := net.Listen("tcp", "localhost:8080")
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 	defer listener.Close()
-	fmt.Println("Server is running on port 8080")
 	loadenv.LoadEnv("./.env")
 	cfg := config.Load()
 	db, err := repository.ConnectDB(ctx, cfg.Database)
@@ -46,22 +46,19 @@ func RunApp(ctx context.Context) {
 
 func handleClient(conn net.Conn, ctx context.Context, handler *handlers.RequestHandler) {
 	defer conn.Close()
-
-	// Parsing client request
-	buffer := make([]byte, 1)
-	var req strings.Builder
 	for {
-		_, err := conn.Read(buffer)
-		if err != nil {
-			if err == io.EOF {
-				break
+		input := make([]byte, (1024 * 4))
+		n, err := conn.Read(input)
+		if n == 0 || err != nil {
+			if err != io.EOF {
+				fmt.Println("Read error:", err)
 			}
-			fmt.Println(err.Error())
-			return
+			break
 		}
-		req.WriteByte(buffer[0])
-	}
-	fmt.Println(req.String())
-	// Processing the request
+		source := string(input[0:n])
 
+		if source == "fetch" {
+			go handler.Fetch(ctx, conn)
+		}
+	}
 }
