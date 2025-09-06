@@ -3,8 +3,9 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"rsslibrary/internal/app/domain"
 	"time"
+
+	"rsslibrary/internal/app/domain"
 )
 
 type FeedsRepositoryInterface interface {
