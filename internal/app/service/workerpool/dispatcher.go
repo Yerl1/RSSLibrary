@@ -10,36 +10,41 @@ import (
 )
 
 type Dispatcher interface {
-	AddWorker(w WorkerLauncher)
-	RemoveWorker(minWorkers int)
-	LaunchWorker(id int, w WorkerLauncher)
 	ScaleWorkers(minWorkers, maxWorkers, loadThreshold int)
 	MakeRequest(r string)
-	Stop(ctx context.Context)
 	StartDispatcher(ctx context.Context)
 	SetInterval(interval time.Duration)
+	SetWorkers(number int)
 	GetInterval() time.Duration
+	GetWorkerCount() int
 }
 
 type dispatcher struct {
-	inCh            chan string
-	wg              *sync.WaitGroup
-	mu              sync.Mutex
-	ticker          *time.Ticker
-	workerCount     int
-	minWorkerNumber int
-	Interval        time.Duration
-	stopCh          chan struct{}
+	inCh        chan string
+	wg          *sync.WaitGroup
+	mu          sync.Mutex
+	ticker      *time.Ticker
+	workerCount int
+	Interval    time.Duration
+	stopCh      chan struct{}
 }
 
 func NewDispatcher(b int, wg *sync.WaitGroup) Dispatcher {
 	minWorkerNumber, _ := strconv.Atoi(os.Getenv("CLI_APP_WORKERS_COUNT"))
 	return &dispatcher{
-		inCh:            make(chan string, b),
-		wg:              wg,
-		stopCh:          make(chan struct{}, 50),
-		minWorkerNumber: minWorkerNumber,
+		inCh:        make(chan string, b),
+		wg:          wg,
+		stopCh:      make(chan struct{}, 50),
+		workerCount: minWorkerNumber,
 	}
+}
+
+func (d *dispatcher) SetWorkers(number int) {
+	d.workerCount = number
+}
+
+func (d *dispatcher) GetWorkerCount() int {
+	return d.workerCount
 }
 
 func (d *dispatcher) SetInterval(interval time.Duration) {
@@ -59,7 +64,7 @@ func (d *dispatcher) StartDispatcher(ctx context.Context) {
 				d.Stop(ctx)
 				return
 			case <-d.ticker.C:
-				for i := 0; i < d.minWorkerNumber; i++ {
+				for i := 0; i < d.workerCount; i++ {
 					fmt.Printf("Starting worker with the id %d\n", i)
 					w := &Worker{
 						Id: i,

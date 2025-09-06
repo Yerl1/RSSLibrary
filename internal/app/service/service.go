@@ -77,3 +77,17 @@ func (this *Service) SetInterval(interval string, ctx context.Context) (string, 
 	message := "Interval of fetching feeds changed from " + getMinutesHelpfunction(previosInterval.String()) + " minutes to " + getMinutesHelpfunction(currentInterval.String()) + " minutes"
 	return message, nil
 }
+
+func (this *Service) SetWorkers(number string, ctx context.Context) (string, error) {
+	if !this.FETCH_STATUS {
+		return "Background process is not running", nil
+	}
+	workersNum, err := strconv.Atoi(number)
+	if err != nil {
+		return "", err
+	}
+	previosWorkerNumber := this.dispatcher.GetWorkerCount()
+	this.dispatcher.SetWorkers(workersNum)
+	message := "Number of workers changed from " + strconv.Itoa(previosWorkerNumber) + " to " + number
+	return message, nil
+}

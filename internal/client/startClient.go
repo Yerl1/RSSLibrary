@@ -22,6 +22,8 @@ func Parser(args []string, conn net.Conn) {
 		Fetch(conn)
 	case args[0] == "set-interval":
 		SetInteval(args[1], conn)
+	case args[0] == "set-workers":
+		SetWorkers(args[1], conn)
 	default:
 		break
 	}

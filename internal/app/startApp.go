@@ -44,7 +44,7 @@ func RunApp(ctx context.Context) {
 	}
 }
 
-func handleClient(conn net.Conn, ctx context.Context, handler *handlers.RequestHandler) {
+func handleClient(conn net.Conn, ctx context.Context, handler handlers.Handler) {
 	defer conn.Close()
 	for {
 		input := make([]byte, (1024 * 4))
@@ -61,6 +61,10 @@ func handleClient(conn net.Conn, ctx context.Context, handler *handlers.RequestH
 		}
 		if len(source) >= 13 && source[:12] == "set-interval" {
 			go handler.SetInterval(source[13:], ctx, conn)
+		}
+
+		if len(source) >= 13 && source[:11] == "set-workers" {
+			go handler.SetWorkers(source[12:], ctx, conn)
 		}
 	}
 }
