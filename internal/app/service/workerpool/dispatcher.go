@@ -17,6 +17,8 @@ type Dispatcher interface {
 	MakeRequest(r string)
 	Stop(ctx context.Context)
 	StartDispatcher(ctx context.Context)
+	SetInterval(interval time.Duration)
+	GetInterval() time.Duration
 }
 
 type dispatcher struct {
@@ -26,18 +28,27 @@ type dispatcher struct {
 	ticker          *time.Ticker
 	workerCount     int
 	minWorkerNumber int
+	Interval        time.Duration
 	stopCh          chan struct{}
 }
 
-func NewDispatcher(b int, wg *sync.WaitGroup, ticker *time.Ticker) Dispatcher {
+func NewDispatcher(b int, wg *sync.WaitGroup) Dispatcher {
 	minWorkerNumber, _ := strconv.Atoi(os.Getenv("CLI_APP_WORKERS_COUNT"))
 	return &dispatcher{
 		inCh:            make(chan string, b),
 		wg:              wg,
 		stopCh:          make(chan struct{}, 50),
-		ticker:          ticker,
 		minWorkerNumber: minWorkerNumber,
 	}
+}
+
+func (d *dispatcher) SetInterval(interval time.Duration) {
+	d.ticker = time.NewTicker(interval)
+	d.Interval = interval
+}
+
+func (d *dispatcher) GetInterval() time.Duration {
+	return d.Interval
 }
 
 func (d *dispatcher) StartDispatcher(ctx context.Context) {

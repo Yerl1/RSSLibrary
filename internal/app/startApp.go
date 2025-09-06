@@ -56,9 +56,11 @@ func handleClient(conn net.Conn, ctx context.Context, handler *handlers.RequestH
 			break
 		}
 		source := string(input[0:n])
-
 		if source == "fetch" {
 			go handler.Fetch(ctx, conn)
+		}
+		if len(source) >= 13 && source[:12] == "set-interval" {
+			go handler.SetInterval(source[13:], ctx, conn)
 		}
 	}
 }

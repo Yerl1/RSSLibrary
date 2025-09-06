@@ -20,6 +20,8 @@ func Parser(args []string, conn net.Conn) {
 	switch {
 	case args[0] == "fetch":
 		Fetch(conn)
+	case args[0] == "set-interval":
+		SetInteval(args[1], conn)
 	default:
 		break
 	}

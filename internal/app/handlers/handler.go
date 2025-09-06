@@ -39,8 +39,13 @@ func (this *RequestHandler) AddFeed(ctx context.Context) error {
 	return nil
 }
 
-func (this *RequestHandler) SetInterval(ctx context.Context) (string, error) {
-	return "Interval of fetching feeds changed from 3 minutes to 2 minutes", nil
+func (this *RequestHandler) SetInterval(inverval string, ctx context.Context, conn net.Conn) {
+	msg, err := this.srv.SetInterval(inverval, ctx)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	conn.Write([]byte(msg))
 }
 
 func (this *RequestHandler) SetWorkers(ctx context.Context) (string, error) {
