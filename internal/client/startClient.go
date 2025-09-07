@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"net"
+	"strings"
 )
 
 func RunClient(args []string) {
@@ -24,6 +25,8 @@ func Parser(args []string, conn net.Conn) {
 		SetInteval(args[1], conn)
 	case args[0] == "set-workers":
 		SetWorkers(args[1], conn)
+	case args[0] == "add":
+		AddFeed(strings.Join(args, " "), conn)
 	default:
 		break
 	}

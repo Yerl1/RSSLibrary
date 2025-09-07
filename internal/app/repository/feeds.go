@@ -31,11 +31,9 @@ func NewFeedsRepository(db *sql.DB) *FeedsRepository {
 // Insert new feed
 func (r *FeedsRepository) InsertFeed(ctx context.Context, name, url string) (domain.Feed, error) {
 	const q = `
-INSERT INTO feeds (name, url)
-VALUES ($1, $2)
-RETURNING id, created_at, updated_at, name, url,
-          last_polled_at, last_changed_at, etag, last_modified;
-`
+		INSERT INTO feeds (name, url)
+		VALUES ($1, $2)
+		RETURNING id, created_at, updated_at, name, url, last_polled_at, last_changed_at, etag, last_modified;`
 	var f domain.Feed
 	err := r.db.QueryRowContext(ctx, q, name, url).Scan(
 		&f.ID, &f.CreatedAt, &f.UpdatedAt, &f.Name, &f.URL,

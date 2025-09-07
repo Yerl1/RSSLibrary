@@ -1,6 +1,3 @@
-
-
-
 # Getting ready image of Golang from the Docker libraries
 FROM golang:1.24.3
 

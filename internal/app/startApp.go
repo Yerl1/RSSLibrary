@@ -66,5 +66,8 @@ func handleClient(conn net.Conn, ctx context.Context, handler handlers.Handler) 
 		if len(source) >= 13 && source[:11] == "set-workers" {
 			go handler.SetWorkers(source[12:], ctx, conn)
 		}
+		if len(source) >= 4 && source[:3] == "add" {
+			go handler.AddFeed(source[4:], ctx, conn)
+		}
 	}
 }

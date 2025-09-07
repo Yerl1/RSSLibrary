@@ -4,13 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 
 	"rsslibrary/internal/app/service"
 )
 
 type Handler interface {
 	Fetch(ctx context.Context, conn net.Conn)
-	AddFeed(ctx context.Context)
+	AddFeed(data string, ctx context.Context, conn net.Conn)
 	SetInterval(inverval string, ctx context.Context, conn net.Conn)
 	SetWorkers(number string, ctx context.Context, conn net.Conn)
 	List(ctx context.Context)
@@ -35,7 +36,19 @@ func (this *RequestHandler) Fetch(ctx context.Context, conn net.Conn) {
 	conn.Write([]byte(msg))
 }
 
-func (this *RequestHandler) AddFeed(ctx context.Context) {
+func (this *RequestHandler) AddFeed(data string, ctx context.Context, conn net.Conn) {
+	// Correct Flag parse
+
+	// Temp quotation parse
+	dataArgs := strings.Split(data, " ")
+	name := dataArgs[1]
+	url := dataArgs[3]
+	message, err := this.srv.AddFeed(url, name, ctx)
+	if err != nil {
+		conn.Write([]byte("Something went wrong: " + err.Error()))
+		return
+	}
+	conn.Write([]byte(message))
 }
 
 func (this *RequestHandler) SetInterval(inverval string, ctx context.Context, conn net.Conn) {

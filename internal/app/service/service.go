@@ -91,3 +91,11 @@ func (this *Service) SetWorkers(number string, ctx context.Context) (string, err
 	message := "Number of workers changed from " + strconv.Itoa(previosWorkerNumber) + " to " + number
 	return message, nil
 }
+
+func (this *Service) AddFeed(url, name string, ctx context.Context) (string, error) {
+	_, err := this.repository.Feeds.InsertFeed(ctx, name, url)
+	if err != nil {
+		return "", err
+	}
+	return "Successfully added new feed", nil
+}

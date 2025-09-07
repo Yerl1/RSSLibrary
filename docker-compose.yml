@@ -11,6 +11,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5522:${POSTGRES_PORT}"
+    volumes:
+      - ./migrations:/var/lib/psotgresql/data
     # HEALTH CHECK
 
   app:
