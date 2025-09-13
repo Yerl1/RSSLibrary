@@ -78,7 +78,6 @@ func handleClient(ctx context.Context, conn net.Conn, handler handlers.Handler) 
 		switch cmd {
 		case "fetch":
 			go handler.Fetch(ctx, conn)
-
 		case "add":
 			name, url := parseFlag(params, "--name"), parseFlag(params, "--url")
 			if name == "" || url == "" {

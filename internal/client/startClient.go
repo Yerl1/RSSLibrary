@@ -14,11 +14,11 @@ func RunClient(args []string) {
 		return
 	}
 	defer conn.Close()
-	req := strings.Join(args, "")
+	req := strings.Join(args, " ")
 	SendRequest(req, conn)
 }
 func SendRequest(req string, conn net.Conn) {
-	data := []byte(req)
+	data := []byte(req + "\n")
 	_, err := conn.Write(data)
 	if err != nil {
 		fmt.Println(err.Error())
