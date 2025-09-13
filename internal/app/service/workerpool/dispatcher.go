@@ -3,60 +3,86 @@ package workerpool
 import (
 	"context"
 	"fmt"
-	"os"
-	"strconv"
+	"rsslibrary/internal/app/domain"
 	"sync"
 	"time"
 )
 
 type Dispatcher interface {
-	ScaleWorkers(minWorkers, maxWorkers, loadThreshold int)
-	MakeRequest(r string)
-	StartDispatcher(ctx context.Context)
+	StartDispatcher(ctx context.Context, jobGenerator func() []domain.Job)
 	SetInterval(interval time.Duration)
-	SetWorkers(number int)
 	GetInterval() time.Duration
+	SetWorkers(number int)
 	GetWorkerCount() int
+	Stop(ctx context.Context)
+	Results() <-chan domain.Result
 }
 
 type dispatcher struct {
-	inCh        chan string
-	wg          *sync.WaitGroup
-	mu          sync.Mutex
-	ticker      *time.Ticker
-	workerCount int
-	Interval    time.Duration
-	stopCh      chan struct{}
+	jobs     chan domain.Job
+	results  chan domain.Result
+	wg       *sync.WaitGroup
+	mu       sync.Mutex
+	ticker   *time.Ticker
+	workers  []*Worker
+	interval time.Duration
+	stopCh   chan struct{}
 }
 
-func NewDispatcher(b int, wg *sync.WaitGroup) Dispatcher {
-	minWorkerNumber, _ := strconv.Atoi(os.Getenv("CLI_APP_WORKERS_COUNT"))
-	return &dispatcher{
-		inCh:        make(chan string, b),
-		wg:          wg,
-		stopCh:      make(chan struct{}, 50),
-		workerCount: minWorkerNumber,
+func NewDispatcher(buf int, wg *sync.WaitGroup, workerCount int) Dispatcher {
+	d := &dispatcher{
+		jobs:   make(chan domain.Job, buf),
+		wg:     wg,
+		stopCh: make(chan struct{}),
 	}
-}
-
-func (d *dispatcher) SetWorkers(number int) {
-	d.workerCount = number
-}
-
-func (d *dispatcher) GetWorkerCount() int {
-	return d.workerCount
+	d.SetWorkers(workerCount)
+	return d
 }
 
 func (d *dispatcher) SetInterval(interval time.Duration) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.ticker != nil {
+		d.ticker.Stop()
+	}
 	d.ticker = time.NewTicker(interval)
-	d.Interval = interval
+	d.interval = interval
 }
 
 func (d *dispatcher) GetInterval() time.Duration {
-	return d.Interval
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.interval
 }
 
-func (d *dispatcher) StartDispatcher(ctx context.Context) {
+func (d *dispatcher) SetWorkers(count int) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if count < len(d.workers) {
+		diff := len(d.workers) - count
+		for i := 0; i < diff; i++ {
+			d.stopCh <- struct{}{}
+		}
+		d.workers = d.workers[:count]
+		return
+	}
+
+	for i := len(d.workers); i < count; i++ {
+		w := &Worker{Id: i + 1, Wg: d.wg}
+		d.wg.Add(1)
+		w.LaunchWorker(d.jobs, d.results, d.stopCh)
+		d.workers = append(d.workers, w)
+	}
+}
+
+func (d *dispatcher) GetWorkerCount() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return len(d.workers)
+}
+
+func (d *dispatcher) StartDispatcher(ctx context.Context, jobGenerator func() []domain.Job) {
 	go func() {
 		for {
 			select {
@@ -64,76 +90,23 @@ func (d *dispatcher) StartDispatcher(ctx context.Context) {
 				d.Stop(ctx)
 				return
 			case <-d.ticker.C:
-				for i := 0; i < d.workerCount; i++ {
-					fmt.Printf("Starting worker with the id %d\n", i)
-					w := &Worker{
-						Id: i,
-						Wg: d.wg,
-					}
-					d.AddWorker(w)
+				for _, job := range jobGenerator() {
+					d.jobs <- job
 				}
 			}
 		}
 	}()
 }
 
-func (d *dispatcher) AddWorker(w WorkerLauncher) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.workerCount++
-	d.wg.Add(1)
-	w.LaunchWorker(d.inCh, d.stopCh)
-}
-
-func (d *dispatcher) RemoveWorker(minWorkers int) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if d.workerCount > minWorkers {
-		d.workerCount--
-		d.stopCh <- struct{}{}
-	}
-}
-
-func (d *dispatcher) ScaleWorkers(minWorkers, maxWorkers, loadThreshold int) {
-	ticker := time.NewTicker(time.Microsecond)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		load := len(d.inCh)
-		if load > loadThreshold && d.workerCount < maxWorkers {
-			fmt.Println("Scaling Triggered")
-			newWorker := &Worker{
-				Wg: d.wg,
-				Id: d.workerCount,
-			}
-			d.AddWorker(newWorker)
-		} else if float64(load) < float64(0.75)*float64(loadThreshold) && d.workerCount > minWorkers {
-			fmt.Println("Reducing Triggered")
-			d.RemoveWorker(minWorkers)
-		}
-	}
-}
-
-func (d *dispatcher) LaunchWorker(id int, w WorkerLauncher) {
-	w.LaunchWorker(d.inCh, d.stopCh)
-	d.mu.Lock()
-	d.workerCount++
-	d.mu.Unlock()
-}
-
-func (d *dispatcher) MakeRequest(r string) {
-	select {
-	case d.inCh <- r:
-	default:
-		fmt.Println("Request channel is full. Dropping request.")
-	}
-}
-
 func (d *dispatcher) Stop(ctx context.Context) {
-	fmt.Println("\nstop called")
-	close(d.inCh)
-	done := make(chan struct{})
+	fmt.Println("Graceful shutdown started...")
+	if d.ticker != nil {
+		d.ticker.Stop()
+	}
+	close(d.stopCh)
+	close(d.jobs)
 
+	done := make(chan struct{})
 	go func() {
 		d.wg.Wait()
 		close(done)
@@ -144,9 +117,9 @@ func (d *dispatcher) Stop(ctx context.Context) {
 		fmt.Println("All workers stopped gracefully")
 	case <-ctx.Done():
 		fmt.Println("Timeout reached, forcing shutdown")
-		for i := 0; i < d.workerCount; i++ {
-			d.stopCh <- struct{}{}
-		}
 	}
-	d.wg.Wait()
+}
+
+func (d *dispatcher) Results() <-chan domain.Result {
+	return d.results
 }

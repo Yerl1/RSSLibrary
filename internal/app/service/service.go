@@ -2,19 +2,25 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
+	"rsslibrary/internal/app/domain"
 	"rsslibrary/internal/app/repository"
 	"rsslibrary/internal/app/service/workerpool"
 )
 
 type ServiceInterface interface {
-	Fetch()
-	SetInterval()
+	Fetch(ctx context.Context) (string, error)
+	SetInterval(interval string, ctx context.Context) (string, error)
+	SetWorkers(number string, ctx context.Context) (string, error)
+	AddFeed(ctx context.Context, name, url string) (domain.Feed, error)
+	ListFeeds(ctx context.Context) ([]domain.Feed, error)
+	DeleteFeed(ctx context.Context, name string) error
+	GetArticles(ctx context.Context, num int, feedName string) ([]domain.Article, error)
 }
 
 type Service struct {
@@ -25,69 +31,111 @@ type Service struct {
 
 func NewService(repo *repository.Repository) *Service {
 	var wg sync.WaitGroup
+	workers, _ := strconv.Atoi(os.Getenv("CLI_APP_WORKERS_COUNT"))
 	return &Service{
 		repository: repo,
-		dispatcher: workerpool.NewDispatcher(50000, &wg),
+		dispatcher: workerpool.NewDispatcher(50000, &wg, workers),
 	}
 }
 
-func (this *Service) Fetch(ctx context.Context) (string, error) {
-	if this.FETCH_STATUS {
+func (s *Service) Fetch(ctx context.Context) (string, error) {
+	if s.FETCH_STATUS {
 		return "Background process is already running", nil
 	}
-	size := len(os.Getenv("CLI_APP_TIMER_INTERVAL"))
-	minutes, err := strconv.Atoi(os.Getenv("CLI_APP_TIMER_INTERVAL")[:size-1])
-	if err != nil {
-		return "", err
+
+	minutes, _ := strconv.Atoi(os.Getenv("CLI_APP_TIMER_INTERVAL")[:len(os.Getenv("CLI_APP_TIMER_INTERVAL"))-1])
+	s.dispatcher.SetInterval(time.Minute * time.Duration(minutes))
+
+	jobGenerator := func() []domain.Job {
+		feeds, err := s.repository.Feeds.GetAllFeeds(ctx)
+		if err != nil {
+			return nil
+		}
+		jobs := make([]domain.Job, 0, len(feeds))
+		for _, f := range feeds {
+			jobs = append(jobs, domain.Job{FeedID: f.ID, URL: f.URL})
+		}
+		return jobs
 	}
-	this.dispatcher.SetInterval(time.Minute * time.Duration(minutes))
-	this.dispatcher.StartDispatcher(ctx)
-	this.FETCH_STATUS = true
-	message := "The background process for fetching feeds has started "
-	message += "(interval  = " + os.Getenv("CLI_APP_TIMER_INTERVAL") + ", workers = " + os.Getenv("CLI_APP_WORKERS_COUNT") + ")"
-	return message, nil
+
+	s.dispatcher.StartDispatcher(ctx, jobGenerator)
+
+	go func() {
+		for res := range s.dispatcher.Results() {
+			if res.Err != nil {
+				fmt.Printf("Error processing feed %s: %v\n", res.FeedID, res.Err)
+				continue
+			}
+			if len(res.Articles) > 0 {
+				if err := s.repository.Articles.InsertArticles(ctx, res.Articles); err != nil {
+					fmt.Printf("DB insert error for feed %s: %v\n", res.FeedID, err)
+				}
+			}
+			_ = s.repository.Feeds.TouchPolled(ctx, res.FeedID, time.Now())
+		}
+	}()
+
+	s.FETCH_STATUS = true
+	return fmt.Sprintf("Background process started (interval=%s, workers=%s)",
+		os.Getenv("CLI_APP_TIMER_INTERVAL"),
+		os.Getenv("CLI_APP_WORKERS_COUNT")), nil
 }
 
-func (this *Service) SetInterval(interval string, ctx context.Context) (string, error) {
-	if !this.FETCH_STATUS {
+func (s *Service) SetInterval(interval string, ctx context.Context) (string, error) {
+	if !s.FETCH_STATUS {
 		return "Background process is not running", nil
 	}
-	// BONUS: add checking for integer
 	size := len(interval)
 	minutes, err := strconv.Atoi(interval[:size-1])
 	if err != nil {
 		return "", err
 	}
-	previosInterval := this.dispatcher.GetInterval()
-	currentInterval := time.Duration(minutes) * time.Minute
-	this.dispatcher.SetInterval(currentInterval)
 
-	// Function for tools.go
-	getMinutesHelpfunction := func(time string) string {
-		var builder strings.Builder
-		for i := 0; i < len(time); i++ {
-			if time[i] < '0' || time[i] > '9' {
-				break
-			}
-			builder.WriteByte(time[i])
-		}
-		return builder.String()
-	}
+	previous := s.dispatcher.GetInterval()
+	current := time.Duration(minutes) * time.Minute
+	s.dispatcher.SetInterval(current)
 
-	message := "Interval of fetching feeds changed from " + getMinutesHelpfunction(previosInterval.String()) + " minutes to " + getMinutesHelpfunction(currentInterval.String()) + " minutes"
+	message := fmt.Sprintf(
+		"Interval of fetching feeds changed from %d minutes to %d minutes",
+		int(previous.Minutes()),
+		minutes,
+	)
 	return message, nil
 }
 
-func (this *Service) SetWorkers(number string, ctx context.Context) (string, error) {
-	if !this.FETCH_STATUS {
+func (s *Service) SetWorkers(number string, ctx context.Context) (string, error) {
+	if !s.FETCH_STATUS {
 		return "Background process is not running", nil
 	}
+
 	workersNum, err := strconv.Atoi(number)
 	if err != nil {
 		return "", err
 	}
-	previosWorkerNumber := this.dispatcher.GetWorkerCount()
-	this.dispatcher.SetWorkers(workersNum)
-	message := "Number of workers changed from " + strconv.Itoa(previosWorkerNumber) + " to " + number
+
+	previous := s.dispatcher.GetWorkerCount()
+	s.dispatcher.SetWorkers(workersNum)
+
+	message := fmt.Sprintf(
+		"Number of workers changed from %d to %d",
+		previous,
+		workersNum,
+	)
 	return message, nil
+}
+
+func (s *Service) AddFeed(ctx context.Context, name, url string) (domain.Feed, error) {
+	return s.repository.Feeds.InsertFeed(ctx, name, url)
+}
+
+func (s *Service) ListFeeds(ctx context.Context) ([]domain.Feed, error) {
+	return s.repository.Feeds.GetAllFeeds(ctx)
+}
+
+func (s *Service) DeleteFeed(ctx context.Context, name string) error {
+	return s.repository.Feeds.DeleteFeed(ctx, name)
+}
+
+func (s *Service) GetArticles(ctx context.Context, num int, feedName string) ([]domain.Article, error) {
+	return s.repository.Articles.GetArticles(ctx, num, feedName)
 }

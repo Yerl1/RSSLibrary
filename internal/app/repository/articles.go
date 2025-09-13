@@ -8,6 +8,7 @@ import (
 
 type ArticlesRepositoryInterface interface {
 	GetArticles(ctx context.Context, num int, name string) ([]domain.Article, error)
+	InsertArticles(ctx context.Context, articles []domain.Article) error
 }
 type ArticlesRepository struct {
 	db *sql.DB
@@ -43,4 +44,21 @@ LIMIT $2;
 		return nil, err
 	}
 	return out, nil
+}
+
+func (r *ArticlesRepository) InsertArticles(ctx context.Context, articles []domain.Article) error {
+	const q = `
+INSERT INTO articles (feed_id, title, link, published_at, created_at)
+VALUES ($1, $2, $3, $4, NOW())
+ON CONFLICT (link) DO NOTHING;
+`
+	for _, a := range articles {
+		_, err := r.db.ExecContext(ctx, q,
+			a.FeedID, a.Title, a.Link, a.PublishedAt,
+		)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

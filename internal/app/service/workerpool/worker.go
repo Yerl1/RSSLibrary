@@ -1,9 +1,8 @@
 package workerpool
 
 import (
-	"fmt"
+	"rsslibrary/internal/app/domain"
 	"sync"
-	"time"
 )
 
 type Worker struct {
@@ -11,25 +10,28 @@ type Worker struct {
 	Wg *sync.WaitGroup
 }
 
-func (w *Worker) LaunchWorker(in chan string, stopCh chan struct{}) {
+func (w *Worker) LaunchWorker(jobs <-chan domain.Job, results chan<- domain.Result, stopCh <-chan struct{}) {
 	go func() {
 		defer w.Wg.Done()
 		for {
 			select {
-			case req, open := <-in:
-				if !open {
-					fmt.Println("Stop worker:", w.Id, " Reason: request channel is closed")
+			case job, ok := <-jobs:
+				if !ok {
 					return
 				}
-				w.ProcessRequest(req)
-				time.Sleep(1 * time.Microsecond)
+				w.ProcessJob(job, results)
 			case <-stopCh:
-				fmt.Println("Stopping worker:", w.Id, " Reason: worker was intentionally removed")
 				return
 			}
 		}
 	}()
 }
 
-func (w *Worker) ProcessRequest(req string) {
+func (w *Worker) ProcessJob(job domain.Job, results chan<- domain.Result) {
+	articles, err := FetchRSS(job.FeedID, job.URL)
+	if err != nil {
+		results <- domain.Result{FeedID: job.FeedID, Err: err}
+		return
+	}
+	results <- domain.Result{FeedID: job.FeedID, Articles: articles}
 }
