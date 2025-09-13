@@ -23,7 +23,7 @@ RUN go mod download
 COPY . .
 
 # Compiling the application
-RUN go build -o rsshub ./cmd/app
-
+RUN go build -o server ./cmd/app
+RUN go build -o rsshub ./cmd/client
 # Telling Docker what command to run when the image is used to start the container
-CMD ["./rsshub", "start_server"]
+CMD ["./server"]
