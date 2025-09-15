@@ -38,6 +38,7 @@ func NewDispatcher(buf int, wg *sync.WaitGroup, workerCount int) Dispatcher {
 	minutes, _ := strconv.Atoi(os.Getenv("CLI_APP_TIMER_INTERVAL")[:len(os.Getenv("CLI_APP_TIMER_INTERVAL"))-1])
 	d := &dispatcher{
 		jobs:             make(chan domain.Job, buf),
+		results:          make(chan domain.Result, buf),
 		wg:               wg,
 		stopCh:           make(chan struct{}),
 		updateIntervalCh: make(chan time.Duration, 1),
@@ -114,6 +115,7 @@ func (d *dispatcher) Stop(ctx context.Context) {
 	}
 	close(d.stopCh)
 	close(d.jobs)
+	close(d.results)
 
 	done := make(chan struct{})
 	go func() {

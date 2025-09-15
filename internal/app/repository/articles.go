@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+
 	"rsslibrary/internal/app/domain"
 )
 
@@ -17,6 +18,7 @@ type ArticlesRepository struct {
 func NewArticlesRepository(db *sql.DB) *ArticlesRepository {
 	return &ArticlesRepository{db: db}
 }
+
 func (r *ArticlesRepository) GetArticles(ctx context.Context, num int, feedName string) ([]domain.Article, error) {
 	const query = `
 SELECT a.published_at, a.title, a.link
@@ -49,8 +51,7 @@ LIMIT $2;
 func (r *ArticlesRepository) InsertArticles(ctx context.Context, articles []domain.Article) error {
 	const q = `
 INSERT INTO articles (feed_id, title, link, published_at, created_at)
-VALUES ($1, $2, $3, $4, NOW())
-ON CONFLICT (link) DO NOTHING;
+VALUES ($1, $2, $3, $4, NOW());
 `
 	for _, a := range articles {
 		_, err := r.db.ExecContext(ctx, q,
