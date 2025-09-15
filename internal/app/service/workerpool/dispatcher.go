@@ -20,34 +20,30 @@ type Dispatcher interface {
 }
 
 type dispatcher struct {
-	jobs     chan domain.Job
-	results  chan domain.Result
-	wg       *sync.WaitGroup
-	mu       sync.Mutex
-	ticker   *time.Ticker
-	workers  []*Worker
-	interval time.Duration
-	stopCh   chan struct{}
+	jobs             chan domain.Job
+	results          chan domain.Result
+	wg               *sync.WaitGroup
+	mu               sync.Mutex
+	ticker           *time.Ticker
+	workers          []*Worker
+	interval         time.Duration
+	stopCh           chan struct{}
+	updateIntervalCh chan time.Duration
 }
 
 func NewDispatcher(buf int, wg *sync.WaitGroup, workerCount int) Dispatcher {
 	d := &dispatcher{
-		jobs:   make(chan domain.Job, buf),
-		wg:     wg,
-		stopCh: make(chan struct{}),
+		jobs:             make(chan domain.Job, buf),
+		wg:               wg,
+		stopCh:           make(chan struct{}),
+		updateIntervalCh: make(chan time.Duration, 1),
 	}
 	d.SetWorkers(workerCount)
 	return d
 }
 
 func (d *dispatcher) SetInterval(interval time.Duration) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if d.ticker != nil {
-		d.ticker.Stop()
-	}
-	d.ticker = time.NewTicker(interval)
-	d.interval = interval
+	d.updateIntervalCh <- interval
 }
 
 func (d *dispatcher) GetInterval() time.Duration {
@@ -91,6 +87,11 @@ func (d *dispatcher) StartDispatcher(ctx context.Context, jobGenerator func() []
 			case <-ctx.Done():
 				d.Stop(ctx)
 				return
+			case newInterval := <-d.updateIntervalCh:
+				d.ticker.Stop()
+				d.ticker = time.NewTicker(newInterval)
+				d.interval = newInterval
+				log.Println("Interval updated")
 			case <-d.ticker.C:
 				log.Printf("Workers are starting to work....")
 				for _, job := range jobGenerator() {
