@@ -12,3 +12,5 @@ CREATE TABLE IF NOT EXISTS articles (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_articles_feed_link ON articles (feed_id, link);
 
 CREATE INDEX IF NOT EXISTS idx_articles_feed_published ON articles (feed_id, published_at DESC);
+
+ALTER TABLE articles ADD CONSTRAINT articles_link_unique UNIQUE (link);

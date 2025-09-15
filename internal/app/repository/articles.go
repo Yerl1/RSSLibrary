@@ -50,8 +50,9 @@ LIMIT $2;
 
 func (r *ArticlesRepository) InsertArticles(ctx context.Context, articles []domain.Article) error {
 	const q = `
-INSERT INTO articles (feed_id, title, link, published_at, created_at)
-VALUES ($1, $2, $3, $4, NOW());
+		INSERT INTO articles (feed_id, title, link, published_at, created_at)
+		VALUES ($1, $2, $3, $4, NOW())
+		ON CONFLICT (link) DO NOTHING;
 `
 	for _, a := range articles {
 		_, err := r.db.ExecContext(ctx, q,

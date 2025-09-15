@@ -1,7 +1,9 @@
 include .env
 
+export $(shell sed 's/=.*//' .env)
+
 MIGRATIONS_DIR=./migrations
-DB_URL=postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=disable
+DB_URL=postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)?sslmode=disable
 DOCKER_MIGRATE=docker run --rm -v $(shell pwd)/$(MIGRATIONS_DIR):/migrations:Z --network rsslibrary_default migrate/migrate
 
 # ---------------------
