@@ -44,9 +44,6 @@ func (s *Service) Fetch(ctx context.Context) (string, error) {
 		return "Background process is already running", nil
 	}
 
-	minutes, _ := strconv.Atoi(os.Getenv("CLI_APP_TIMER_INTERVAL")[:len(os.Getenv("CLI_APP_TIMER_INTERVAL"))-1])
-	s.dispatcher.SetInterval(time.Minute * time.Duration(minutes))
-
 	jobGenerator := func() []domain.Job {
 		feeds, err := s.repository.Feeds.GetAllFeeds(ctx)
 		if err != nil {
@@ -62,37 +59,29 @@ func (s *Service) Fetch(ctx context.Context) (string, error) {
 	s.dispatcher.StartDispatcher(ctx, jobGenerator)
 
 	go func() {
-		for {
-			select {
-			case res, ok := <-s.dispatcher.Results():
-				if !ok {
-					log.Println("Results channel closed, stopping goroutine")
-					return
-				}
-
-				if res.Err != nil {
-					log.Printf("Error processing feed %s: %v\n", res.FeedID, res.Err)
-					continue
-				}
-
-				log.Printf("Parsed articles for feed %s: count=%d", res.FeedID, len(res.Articles))
-
-				if len(res.Articles) > 0 {
-					if err := s.repository.Articles.InsertArticles(ctx, res.Articles); err != nil {
-						log.Printf("DB insert error for feed %s: %v, articles: %+v\n", res.FeedID, err, res.Articles)
-					} else {
-						log.Printf("Successfully inserted articles for feed %s, count: %d\n", res.FeedID, len(res.Articles))
-					}
-				} else {
-					log.Printf("No articles to insert for feed %s\n", res.FeedID)
-				}
-				if err := s.repository.Feeds.TouchPolled(ctx, res.FeedID, time.Now()); err != nil {
-					log.Printf("Failed to update polled time for feed %s: %v\n", res.FeedID, err)
-				} else {
-					log.Printf("Updated polled time for feed %s\n", res.FeedID)
-				}
-
+		for res := range s.dispatcher.Results() {
+			if res.Err != nil {
+				log.Printf("Error processing feed %s: %v\n", res.FeedID, res.Err)
+				continue
 			}
+
+			log.Printf("Parsed articles for feed %s: count=%d", res.FeedID, len(res.Articles))
+
+			if len(res.Articles) > 0 {
+				if err := s.repository.Articles.InsertArticles(ctx, res.Articles); err != nil {
+					log.Printf("DB insert error for feed %s: %v, articles: %+v\n", res.FeedID, err, res.Articles)
+				} else {
+					log.Printf("Successfully inserted articles for feed %s, count: %d\n", res.FeedID, len(res.Articles))
+				}
+			} else {
+				log.Printf("No articles to insert for feed %s\n", res.FeedID)
+			}
+			if err := s.repository.Feeds.TouchPolled(ctx, res.FeedID, time.Now()); err != nil {
+				log.Printf("Failed to update polled time for feed %s: %v\n", res.FeedID, err)
+			} else {
+				log.Printf("Updated polled time for feed %s\n", res.FeedID)
+			}
+
 		}
 	}()
 

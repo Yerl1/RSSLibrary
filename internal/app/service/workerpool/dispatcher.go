@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"rsslibrary/internal/app/domain"
+	"os"
+	"strconv"
 	"sync"
 	"time"
+
+	"rsslibrary/internal/app/domain"
 )
 
 type Dispatcher interface {
@@ -32,11 +35,13 @@ type dispatcher struct {
 }
 
 func NewDispatcher(buf int, wg *sync.WaitGroup, workerCount int) Dispatcher {
+	minutes, _ := strconv.Atoi(os.Getenv("CLI_APP_TIMER_INTERVAL")[:len(os.Getenv("CLI_APP_TIMER_INTERVAL"))-1])
 	d := &dispatcher{
 		jobs:             make(chan domain.Job, buf),
 		wg:               wg,
 		stopCh:           make(chan struct{}),
 		updateIntervalCh: make(chan time.Duration, 1),
+		ticker:           time.NewTicker(time.Duration(minutes) * time.Minute),
 	}
 	d.SetWorkers(workerCount)
 	return d
