@@ -3,6 +3,7 @@ package workerpool
 import (
 	"context"
 	"fmt"
+	"log"
 	"rsslibrary/internal/app/domain"
 	"sync"
 	"time"
@@ -83,6 +84,7 @@ func (d *dispatcher) GetWorkerCount() int {
 }
 
 func (d *dispatcher) StartDispatcher(ctx context.Context, jobGenerator func() []domain.Job) {
+	log.Printf("Dispatcher started")
 	go func() {
 		for {
 			select {
@@ -90,6 +92,7 @@ func (d *dispatcher) StartDispatcher(ctx context.Context, jobGenerator func() []
 				d.Stop(ctx)
 				return
 			case <-d.ticker.C:
+				log.Printf("Workers are starting to work....")
 				for _, job := range jobGenerator() {
 					d.jobs <- job
 				}
