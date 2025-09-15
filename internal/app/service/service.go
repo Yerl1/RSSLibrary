@@ -32,7 +32,11 @@ type Service struct {
 
 func NewService(repo *repository.Repository) *Service {
 	var wg sync.WaitGroup
-	workers, _ := strconv.Atoi(os.Getenv("CLI_APP_WORKERS_COUNT"))
+	workers, err := strconv.Atoi(os.Getenv("CLI_APP_WORKERS_COUNT"))
+	if err != nil {
+		log.Println("Error: environment variable invalid format: CLI_APP_WORKERS_COUNT invalid format, workers set to be 3")
+		workers = 3
+	}
 	return &Service{
 		repository: repo,
 		dispatcher: workerpool.NewDispatcher(50000, &wg, workers),
@@ -95,8 +99,7 @@ func (s *Service) SetInterval(interval string, ctx context.Context) (string, err
 	if !s.FETCH_STATUS {
 		return "Background process is not running", nil
 	}
-	size := len(interval)
-	minutes, err := strconv.Atoi(interval[:size-1])
+	minutes, err := time.ParseDuration(interval)
 	if err != nil {
 		return "", err
 	}
@@ -106,9 +109,9 @@ func (s *Service) SetInterval(interval string, ctx context.Context) (string, err
 	s.dispatcher.SetInterval(current)
 
 	message := fmt.Sprintf(
-		"Interval of fetching feeds changed from %d minutes to %d minutes",
-		int(previous.Minutes()),
-		minutes,
+		"Interval of fetching feeds changed from %s minutes to %s minutes",
+		previous.String(),
+		minutes.String(),
 	)
 	return message, nil
 }

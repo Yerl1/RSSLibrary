@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -35,14 +34,19 @@ type dispatcher struct {
 }
 
 func NewDispatcher(buf int, wg *sync.WaitGroup, workerCount int) Dispatcher {
-	minutes, _ := strconv.Atoi(os.Getenv("CLI_APP_TIMER_INTERVAL")[:len(os.Getenv("CLI_APP_TIMER_INTERVAL"))-1])
+	minutes, err := time.ParseDuration(os.Getenv("CLI_APP_TIMER_INTERVAL"))
+	if err != nil {
+		log.Println("Error: environment variable invalid format: CLI_APP_TIMER_INTERVAL invalid format, interval set to be 3m")
+		minutes = time.Minute * time.Duration(3)
+	}
 	d := &dispatcher{
 		jobs:             make(chan domain.Job, buf),
 		results:          make(chan domain.Result, buf),
+		interval:         minutes,
 		wg:               wg,
 		stopCh:           make(chan struct{}),
 		updateIntervalCh: make(chan time.Duration, 1),
-		ticker:           time.NewTicker(time.Duration(minutes) * time.Minute),
+		ticker:           time.NewTicker(minutes * time.Minute),
 	}
 	d.SetWorkers(workerCount)
 	return d
