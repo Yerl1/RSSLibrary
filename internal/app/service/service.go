@@ -49,7 +49,7 @@ func (s *Service) Fetch(ctx context.Context) (string, error) {
 	}
 
 	jobGenerator := func() []domain.Job {
-		feeds, err := s.repository.Feeds.GetAllFeeds(ctx)
+		feeds, err := s.repository.Feeds.GetOldestFeeds(ctx, 10)
 		if err != nil {
 			return nil
 		}
@@ -103,10 +103,8 @@ func (s *Service) SetInterval(interval string, ctx context.Context) (string, err
 	if err != nil {
 		return "", err
 	}
-
 	previous := s.dispatcher.GetInterval()
-	current := time.Duration(minutes) * time.Minute
-	s.dispatcher.SetInterval(current)
+	s.dispatcher.SetInterval(minutes)
 
 	message := fmt.Sprintf(
 		"Interval of fetching feeds changed from %s minutes to %s minutes",
