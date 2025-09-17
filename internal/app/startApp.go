@@ -101,11 +101,17 @@ func handleClient(ctx context.Context, conn net.Conn, handler handlers.Handler) 
 			go handler.SetWorkers(ctx, params[0], conn)
 
 		case "list":
+			var num int
+			var err error
 			stringNum := parseFlag(params, "--num")
-			num, err := strconv.Atoi(stringNum)
-			if err != nil {
-				conn.Write([]byte("User input error: " + stringNum + " is not a number"))
-				return
+			if len(stringNum) == 0 {
+				num = 3
+			} else {
+				num, err = strconv.Atoi(stringNum)
+				if err != nil {
+					conn.Write([]byte("User input error: " + stringNum + " is not a number"))
+					return
+				}
 			}
 			go handler.ListFeeds(ctx, num, conn)
 
@@ -124,10 +130,16 @@ func handleClient(ctx context.Context, conn net.Conn, handler handlers.Handler) 
 				continue
 			}
 			stringNum := parseFlag(params, "--num")
-			num, err := strconv.Atoi(stringNum)
-			if err != nil {
-				conn.Write([]byte("User input error: " + stringNum + " is not a number"))
-				return
+			var num int
+			var err error
+			if len(stringNum) == 0 {
+				num = 3
+			} else {
+				num, err = strconv.Atoi(stringNum)
+				if err != nil {
+					conn.Write([]byte("User input error: " + stringNum + " is not a number"))
+					return
+				}
 			}
 			go handler.ListArticles(ctx, feed, num, conn)
 
